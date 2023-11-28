@@ -97,6 +97,7 @@ Defaults to one hour."
             (org-roam-timestamps--add-ctime pnode))))
       nil)))
 
+
 (defun org-roam-timestamps--add-mtime (node &optional mtime)
   "Add the current time to the node NODE.
 
