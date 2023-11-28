@@ -104,10 +104,13 @@ Optionally checks the minimum time interval you want between mod times
 if you supply the current MTIME."
   (org-with-wide-buffer
    (let ((pos (if node (org-roam-node-point node) (point-min)))
-         (curr (org-roam-timestamps-decode (current-time))))
+         (curr (format-time-string "%Y-%m-%d %H:%M:%S")))
      (if (and org-roam-timestamps-remember-timestamps mtime)
          (when (> (org-roam-timestamps-subtract curr mtime t) org-roam-timestamps-minimum-gap)
-           (org-entry-put pos "mtime" (concat (org-roam-timestamps-decode (current-time)) " " mtime)))
+           ;; Clear the old modified time
+           (org-entry-delete pos "mtime")
+           ;; Add the new modified time
+           (org-entry-put pos "mtime" curr))
        (org-entry-put pos "mtime" curr)))))
 
 (defun org-roam-timestamps--get-mtime (node)
@@ -123,8 +126,8 @@ if you supply the current MTIME."
 (defun org-roam-timestamps--add-ctime (node)
   "Return the current ctime for the node NODE.
 
-For file level nodes it tries to deduce the creation time
-from the slug, otherwise it uses the lowest mtime.
+For file level nodes, it tries to deduce the creation time
+from the slug; otherwise, it uses the lowest mtime.
 We can be assured an mtime is set, as that happens before setting the
 ctime."
   (let ((pos (org-roam-node-point node))
@@ -138,37 +141,27 @@ ctime."
             (index (string-match "^[0-9]\\{14\\}" filename))
             (timestamp (substring filename index (+ index 14))))
            (org-entry-put pos "ctime" timestamp)
-         (org-entry-put pos "ctime" (car(last (split-string (org-entry-get pos "mtime"))))))))))
+         (org-entry-put pos "ctime" (car (last (split-string (org-entry-get pos "mtime"))))))))))
 
 (defun org-roam-timestamps--get-parent-file-id (file)
-  "Find the top level node-id of FILE."
+  "Find the top-level node-id of FILE."
   (caar (org-roam-db-query `[:select nodes:id :from nodes :where (and (= nodes:file ,file) (= nodes:level 0))])))
 
 (defun org-roam-timestamps--get-parent-file-node (file)
-  "Find the top level node of FILE."
+  "Find the top-level node of FILE."
   (org-roam-node-from-id (org-roam-timestamps--get-parent-file-id file)))
 
 (defun org-roam-timestamps-decode (mtime)
-  "Decode a list of seconds since 1970 MTIME to an org-roam-timestamp."
-  (let ((time (decode-time mtime))
-        dec-time
-        el)
-    (dotimes (i 6 )
-      (setq el (number-to-string (nth i time)))
-      (when (eq (length el) 1) (setq el (concat "0" el)))
-      (setq dec-time
-            (concat el dec-time)))
-    dec-time))
+  "Decode a list of seconds since 1970 MTIME to a human-readable timestamp."
+  (format-time-string "%Y-%m-%d %H:%M:%S" (org-roam-timestamps-encode mtime)))
 
 (defun org-roam-timestamps-encode (mtime)
   "Encode the current YYYYMMDDHHMMSS MTIME string to an Emacs format."
-  (encode-time `(,(string-to-number (substring mtime 12 14))
-                 ,(string-to-number (substring mtime 10 12))
-                 ,(string-to-number (substring mtime 8 10))
-                 ,(string-to-number (substring mtime 6 8))
-                 ,(string-to-number (substring mtime 4 6))
-                 ,(string-to-number (substring mtime 0 4))
-                 nil -1 nil)))
+  (seconds-to-time (org-roam-timestamps-encode-seconds mtime)))
+
+(defun org-roam-timestamps-encode-seconds (mtime)
+  "Convert the current YYYYMMDDHHMMSS MTIME string to seconds since 1970."
+  (float-time (date-to-time mtime)))
 
 (defun org-roam-timestamps-subtract (t1 t2 &optional abs)
   "Return the difference between two timestamps T1 and T2, as a time value.
@@ -203,7 +196,7 @@ This might take a second. Are you sure you want to continue?")
           (org-roam-with-file file nil
             (goto-char pos)
             (unless (assoc-default "MTIME" props)
-              (org-roam-property-add "mtime" mtime ))
+              (org-roam-property-add "mtime" mtime))
             (unless (assoc-default "CTIME" props)
               (if-let ((filename (file-name-base file))
                        (index (string-match "^[0-9]\\{14\\}" filename))
