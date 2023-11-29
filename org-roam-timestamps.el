@@ -44,7 +44,7 @@
   "Creation and modification timestamps in Org-roam."
   :group 'org-roam
   :prefix "org-roam-timestamps-"
-  :link '(url-link :tag "Github" "https://github.com/ThomasFKJorna/org-roam-timestamps"))
+  :link '(url-link :tag "Github" "https://github.com/Xanaxus/org-roam-timestamps"))
 
 (defcustom org-roam-timestamps-timestamp-parent-file t
   "Whether to timestamp the parent file when modifying a child node."
