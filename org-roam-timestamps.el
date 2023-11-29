@@ -37,14 +37,13 @@
 ;; without relying on the org-roam-slug.
 ;;
 ;;; Code:
-
 (require 'org-roam)
 
 (defgroup org-roam-timestamps nil
   "Creation and modification timestamps in Org-roam."
   :group 'org-roam
   :prefix "org-roam-timestamps-"
-  :link '(url-link :tag "Github" "https://github.com/Xanaxus/org-roam-timestamps"))
+  :link '(url-link :tag "Github" "https://github.com/ThomasFKJorna/org-roam-timestamps"))
 
 (defcustom org-roam-timestamps-timestamp-parent-file t
   "Whether to timestamp the parent file when modifying a child node."
@@ -104,15 +103,21 @@ Optionally checks the minimum time interval you want between mod times
 if you supply the current MTIME."
   (org-with-wide-buffer
    (let ((pos (if node (org-roam-node-point node) (point-min)))
-         (curr-time (current-time))
-         (curr (format-time-string "%Y-%m-%d %H:%M:%S")))
+         (curr (format-time-string "%Y-%m-%d %H:%M:%S"))
+         (ctime (org-roam-timestamps--get-ctime pos)))
      (if (and org-roam-timestamps-remember-timestamps mtime)
-         (when (> (org-roam-timestamps-subtract curr-time mtime t) org-roam-timestamps-minimum-gap)
+         (when (> (org-roam-timestamps-subtract curr mtime t) org-roam-timestamps-minimum-gap)
            ;; Clear the old modified time
            (org-entry-delete pos "mtime")
            ;; Add the new modified time
            (org-entry-put pos "mtime" curr))
-       (org-entry-put pos "mtime" curr)))))
+       (org-entry-put pos "mtime" curr))
+
+     ;; If ctime is not available, set it to the creation time of the file
+     (unless ctime
+       (let ((birthtime (org-roam-timestamps--get-birthtime file)))
+         (when birthtime
+           (org-entry-put pos "ctime" (format-time-string "%Y-%m-%d %H:%M:%S" birthtime)))))))
 
 (defun org-roam-timestamps--get-mtime (node)
   "Get the mtime of the org-roam node NODE."
@@ -127,8 +132,8 @@ if you supply the current MTIME."
 (defun org-roam-timestamps--add-ctime (node)
   "Return the current ctime for the node NODE.
 
-For file level nodes, it tries to deduce the creation time
-from the slug; otherwise, it uses the lowest mtime.
+For file-level nodes, it tries to deduce the creation time
+from the birthtime; otherwise, it uses the lowest mtime.
 We can be assured an mtime is set, as that happens before setting the
 ctime."
   (let ((pos (org-roam-node-point node))
@@ -138,12 +143,9 @@ ctime."
       (org-with-wide-buffer
        (if-let
            ((toplevel (= 0 (or level 0)))
-            (filename (file-name-base file))
-            (index (string-match "^[0-9]\\{14\\}" filename))
-            (timestamp (substring filename index (+ index 14))))
-           (org-entry-put pos "ctime" (format-time-string "%Y-%m-%d %H:%M:%S" (org-roam-timestamps-encode-seconds timestamp)))
-         (org-entry-put pos "ctime" (format-time-string "%Y-%m-%d %H:%M:%S" (org-roam-timestamps-encode-seconds (org-roam-timestamps--get-mtime node))))))))
-
+            (birthtime (org-roam-timestamps--get-birthtime file)))
+           (org-entry-put pos "ctime" (format-time-string "%Y-%m-%d %H:%M:%S" birthtime))
+         (org-roam-timestamps--add-mtime node))))))
 
 (defun org-roam-timestamps--get-parent-file-id (file)
   "Find the top-level node-id of FILE."
@@ -153,9 +155,15 @@ ctime."
   "Find the top-level node of FILE."
   (org-roam-node-from-id (org-roam-timestamps--get-parent-file-id file)))
 
+(defun org-roam-timestamps--get-birthtime (file)
+  "Get the birthtime of the FILE, if available."
+  (let ((birthtime (nth 5 (file-attributes file))))
+    (when (and birthtime (time-less-p birthtime (current-time)))
+      birthtime)))
+
 (defun org-roam-timestamps-decode (mtime)
   "Decode a list of seconds since 1970 MTIME to a human-readable timestamp."
-  (format-time-string "%Y-%m-%d %H:%M:%S" (org-roam-timestamps-encode-seconds mtime)))
+  (format-time-string "%Y-%m-%d %H:%M:%S" (org-roam-timestamps-encode mtime)))
 
 (defun org-roam-timestamps-encode (mtime)
   "Encode the current YYYYMMDDHHMMSS MTIME string to an Emacs format."
@@ -199,11 +207,7 @@ This might take a second. Are you sure you want to continue?")
             (unless (assoc-default "MTIME" props)
               (org-roam-property-add "mtime" mtime))
             (unless (assoc-default "CTIME" props)
-              (if-let ((filename (file-name-base file))
-                       (index (string-match "^[0-9]\\{14\\}" filename))
-                       (timestamp (substring filename index (+ index 14))))
-                  (org-roam-property-add "ctime" timestamp)
-                (org-roam-property-add "ctime" mtime)))
+              (org-roam-timestamps--add-ctime n))
             (save-buffer))))))
   (org-roam-db-sync))
 
