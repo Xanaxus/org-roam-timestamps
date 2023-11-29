@@ -97,7 +97,6 @@ Defaults to one hour."
             (org-roam-timestamps--add-ctime pnode))))
       nil)))
 
-
 (defun org-roam-timestamps--add-mtime (node &optional mtime)
   "Add the current time to the node NODE.
 
@@ -141,9 +140,8 @@ ctime."
             (filename (file-name-base file))
             (index (string-match "^[0-9]\\{14\\}" filename))
             (timestamp (substring filename index (+ index 14))))
-(org-entry-put pos "ctime" timestamp)
-         (org-entry-put pos "ctime" (org-roam-timestamps-decode (org-roam-timestamps--get-mtime node))))
-       (org-roam-db-sync)))))
+           (org-entry-put pos "ctime" timestamp)
+         (org-entry-put pos "ctime" (car (last (split-string (org-entry-get pos "mtime"))))))))))
 
 (defun org-roam-timestamps--get-parent-file-id (file)
   "Find the top-level node-id of FILE."
@@ -173,7 +171,6 @@ If ABS is non-nil, return the absolute value."
     (if abs
         (abs time)
       time)))
-
 
 (defun org-roam-timestamps-all ()
   "Go through all nodes and add timestamps to them."
