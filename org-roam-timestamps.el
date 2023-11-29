@@ -141,8 +141,9 @@ ctime."
             (filename (file-name-base file))
             (index (string-match "^[0-9]\\{14\\}" filename))
             (timestamp (substring filename index (+ index 14))))
-           (org-entry-put pos "ctime" timestamp)
-         (org-entry-put pos "ctime" (car (last (split-string (org-entry-get pos "mtime"))))))))))
+(org-entry-put pos "ctime" timestamp)
+         (org-entry-put pos "ctime" (org-roam-timestamps-decode (org-roam-timestamps--get-mtime node))))
+       (org-roam-db-sync)))))
 
 (defun org-roam-timestamps--get-parent-file-id (file)
   "Find the top-level node-id of FILE."
@@ -154,7 +155,7 @@ ctime."
 
 (defun org-roam-timestamps-decode (mtime)
   "Decode a list of seconds since 1970 MTIME to a human-readable timestamp."
-  (format-time-string "%Y-%m-%d %H:%M:%S" (org-roam-timestamps-encode mtime)))
+  (format-time-string "%Y-%m-%d %H:%M:%S" (org-roam-timestamps-encode-seconds mtime)))
 
 (defun org-roam-timestamps-encode (mtime)
   "Encode the current YYYYMMDDHHMMSS MTIME string to an Emacs format."
