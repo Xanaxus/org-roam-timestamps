@@ -104,9 +104,10 @@ Optionally checks the minimum time interval you want between mod times
 if you supply the current MTIME."
   (org-with-wide-buffer
    (let ((pos (if node (org-roam-node-point node) (point-min)))
+         (curr-time (current-time))
          (curr (format-time-string "%Y-%m-%d %H:%M:%S")))
      (if (and org-roam-timestamps-remember-timestamps mtime)
-         (when (> (org-roam-timestamps-subtract curr mtime t) org-roam-timestamps-minimum-gap)
+         (when (> (org-roam-timestamps-subtract curr-time mtime t) org-roam-timestamps-minimum-gap)
            ;; Clear the old modified time
            (org-entry-delete pos "mtime")
            ;; Add the new modified time
@@ -140,8 +141,9 @@ ctime."
             (filename (file-name-base file))
             (index (string-match "^[0-9]\\{14\\}" filename))
             (timestamp (substring filename index (+ index 14))))
-           (org-entry-put pos "ctime" timestamp)
-         (org-entry-put pos "ctime" (car (last (split-string (org-entry-get pos "mtime"))))))))))
+           (org-entry-put pos "ctime" (format-time-string "%Y-%m-%d %H:%M:%S" (org-roam-timestamps-encode-seconds timestamp)))
+         (org-entry-put pos "ctime" (format-time-string "%Y-%m-%d %H:%M:%S" (org-roam-timestamps-encode-seconds (org-roam-timestamps--get-mtime node))))))))
+
 
 (defun org-roam-timestamps--get-parent-file-id (file)
   "Find the top-level node-id of FILE."
